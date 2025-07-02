@@ -58,10 +58,6 @@ conda activate vggt-slam
 This step will automatically download all 3rd party packages including VGGT. More details on the license for VGGT can be found [here](https://github.com/facebookresearch/vggt/blob/main/LICENSE.txt).
 
 ```
-chmod +x setup.sh
-```
-
-```
 ./setup.sh
 ```
 
@@ -72,8 +68,18 @@ chmod +x setup.sh
 run `python main.py --image_folder /path/to/image/folder --max_loops 1 --vis_map` replacing the image path with your folder of images. 
 This will create a visualization in viser which shows the incremental construction of the map.
 
-As an example, we provide a folder of test images in office_loop.zip which will generate the following map. Using the default parameters will 
-result in a single loop closure towards the end of the trajectory. Unzip the folder and set its path as the arguments for --image_folder
+As an example, we provide a folder of test images in `office_loop.zip` which will generate the following map. Using the default parameters will
+result in a single loop closure towards the end of the trajectory. Unzip the folder and set its path as the arguments for `--image_folder`, e.g.,
+
+```
+unzip office_loop.zip
+```
+
+and then run the below command:
+
+```
+python3 main.py --image_folder office_loop --max_loops 1 --vis_map
+```
 
 <p align="center">
   <img src="assets/office-loop-figure" width="300">

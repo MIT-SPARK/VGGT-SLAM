@@ -7,7 +7,7 @@ from typing import NamedTuple
 import torchvision.transforms as T
 import os
 
-from eval import load_model # load salad
+from salad.eval import load_model # load salad
 
 
 device = 'cuda'
