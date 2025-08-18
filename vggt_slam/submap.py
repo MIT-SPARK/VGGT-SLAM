@@ -114,9 +114,16 @@ class Submap:
         # Note this does not include any of the loop closure frames
         return self.frame_ids
 
-    def filter_data_by_confidence(self, data):
-        init_conf_mask = self.conf >= self.conf_threshold
-        return data[init_conf_mask]
+    def filter_data_by_confidence(self, data, stride = 1):
+        if stride == 1:
+            init_conf_mask = self.conf >= self.conf_threshold
+            return data[init_conf_mask]
+        else:
+            conf_sub = self.conf[:, ::stride, ::stride]
+            data_sub = data[:, ::stride, ::stride, :]
+
+            init_conf_mask = conf_sub >= self.conf_threshold
+            return data_sub[init_conf_mask]
 
     def get_points_list_in_world_frame(self, ignore_loop_closure_frames=False):
         point_list = []
@@ -134,8 +141,8 @@ class Submap:
                 break
         return point_list, frame_id_list, frame_conf_mask
 
-    def get_points_in_world_frame(self):
-        points = self.filter_data_by_confidence(self.pointclouds)
+    def get_points_in_world_frame(self, stride = 1):
+        points = self.filter_data_by_confidence(self.pointclouds, stride)
 
         points_flat = points.reshape(-1, 3)
         points_homogeneous = np.hstack([points_flat, np.ones((points_flat.shape[0], 1))])
@@ -169,7 +176,7 @@ class Submap:
         voxelized_points_in_world_frame.colors = self.voxelized_points.colors
         return voxelized_points_in_world_frame
     
-    def get_points_colors(self):
-        colors = self.filter_data_by_confidence(self.colors)
+    def get_points_colors(self, stride = 1):
+        colors = self.filter_data_by_confidence(self.colors, stride)
         return colors.reshape(-1, 3)
 

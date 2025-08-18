@@ -30,6 +30,8 @@ parser.add_argument("--max_loops", type=int, default=1, help="Maximum number of 
 parser.add_argument("--min_disparity", type=float, default=50, help="Minimum disparity to generate a new keyframe")
 parser.add_argument("--use_point_map", action="store_true", help="Use point map instead of depth-based points")
 parser.add_argument("--conf_threshold", type=float, default=25.0, help="Initial percentage of low-confidence points to filter out")
+parser.add_argument("--vis_stride", type=int, default=4, help="Stride interval in the 3D point cloud image for visualization")
+parser.add_argument("--vis_point_size", type=float, default=0.003, help="Visualization point size")
 
 def main():
     """
@@ -44,7 +46,9 @@ def main():
         init_conf_threshold=args.conf_threshold,
         use_point_map=args.use_point_map,
         use_sim3=args.use_sim3,
-        gradio_mode=False
+        gradio_mode=False,
+        vis_stride = args.vis_stride,
+        vis_point_size = args.vis_point_size,
     )
 
     print("Initializing and loading VGGT model...")

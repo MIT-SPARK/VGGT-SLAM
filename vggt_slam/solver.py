@@ -62,7 +62,7 @@ class Viewer:
         num_rand_colors = 250
         self.random_colors = np.random.randint(0, 256, size=(num_rand_colors, 3), dtype=np.uint8)
 
-    def visualize_frames(self, extrinsics: np.ndarray, images_: np.ndarray, submap_id: int) -> None:
+    def visualize_frames(self, extrinsics: np.ndarray, images_: np.ndarray, submap_id: int, image_scale: float=0.5) -> None:
         """
         Add camera frames and frustums to the scene for a specific submap.
         extrinsics: (S, 3, 4)
@@ -99,16 +99,24 @@ class Viewer:
             # Convert image and add frustum
             img = images_[img_id]
             img = (img.transpose(1, 2, 0) * 255).astype(np.uint8)
+
             h, w = img.shape[:2]
             fy = 1.1 * h
             fov = 2 * np.arctan2(h / 2, fy)
+
+            # Downsample for visualization with `image_scale`
+            img_resized = cv2.resize(
+                img,
+                (int(img.shape[1] * image_scale), int(img.shape[0] * image_scale)),
+                interpolation=cv2.INTER_AREA
+            )
 
             frustum = self.server.scene.add_camera_frustum(
                 frustum_name,
                 fov=fov,
                 aspect=w / h,
                 scale=0.05,
-                image=img,
+                image=img_resized,
                 line_width=3.0,
                 color=self.random_colors[submap_id]
             )
@@ -133,7 +141,9 @@ class Solver:
         use_point_map: bool = False,
         visualize_global_map: bool = False,
         use_sim3: bool = False,
-        gradio_mode: bool = False):
+        gradio_mode: bool = False,
+        vis_stride: int = 1,         # represents how much the visualized point clouds are sparsified
+        vis_point_size: float = 0.001):
         
         self.init_conf_threshold = init_conf_threshold
         self.use_point_map = use_point_map
@@ -163,6 +173,9 @@ class Solver:
         self.prior_pcd = None
         self.prior_conf = None
 
+        self.vis_stride = vis_stride
+        self.vis_point_size = vis_point_size
+
         print("Starting viser server...")
 
     def set_point_cloud(self, points_in_world_frame, points_colors, name, point_size):
@@ -179,10 +192,12 @@ class Solver:
 
     def set_submap_point_cloud(self, submap):
         # Add the point cloud to the visualization.
-        points_in_world_frame = submap.get_points_in_world_frame()
-        points_colors = submap.get_points_colors()
+        # NOTE(hlim): `stride` is used only to reduce the visualization cost in viser,
+        # and does not affect the underlying point cloud data.
+        points_in_world_frame = submap.get_points_in_world_frame(stride = self.vis_stride)
+        points_colors = submap.get_points_colors(stride = self.vis_stride)
         name = str(submap.get_id())
-        self.set_point_cloud(points_in_world_frame, points_colors, name, 0.001)
+        self.set_point_cloud(points_in_world_frame, points_colors, name, self.vis_point_size)
 
     def set_submap_poses(self, submap):
         # Add the camera poses to the visualization.
