@@ -21,7 +21,7 @@ datasets=(
 )
 
 # Number of full runs
-n=5  # <-- change as needed
+n=1  # <-- change as needed
 
 # If file doesn't exist, write header
 if [ ! -f "$log_path" ]; then
@@ -37,7 +37,7 @@ for run in $(seq 1 $n); do
     for dataset in "${datasets[@]}"; do
         echo "Running main.py on $dataset (Run $run)"
         dataset_name="${dataset_path}${dataset}/rgb"
-        python main.py --image_folder "$dataset_name" --max_loops 1 --min_disparity 50 --conf_threshold 25 --submap_size "$submap_size" --log_results --skip_dense_log --log_path "$(pwd)/logs/${dataset}_run${run}_w${submap_size}.txt"
+        python main.py --image_folder "$dataset_name" --max_loops 1 --min_disparity 50 --conf_threshold 25 --lc_thres 0.95 --submap_size "$submap_size" --log_results --skip_dense_log --log_path "$(pwd)/logs/${dataset}_run${run}_w${submap_size}.txt"
     done
 
     for dataset in "${datasets[@]}"; do

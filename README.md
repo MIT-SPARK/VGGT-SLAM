@@ -1,25 +1,33 @@
 <div align="center">
-    <h1>VGGT-SLAM</h1>
-    <a href="https://arxiv.org/abs/2505.12549"><img src="https://img.shields.io/badge/arXiv-b33737?logo=arXiv" /></a>
-    <!-- <a href=''><img src='https://img.shields.io/badge/%F0%9F%A4%97%20Hugging%20Face-Demo-blue'></a> -->
-    <br />
-    <br />
-  <br />
-  <br />
-  <p align="center"><img src="assets/vggt_slam_demo.gif" alt="VGGT-SLAM" width="95%"/></p>
-  <p><strong><em>VGGT-SLAM: Dense RGB SLAM Optimized on the SL(4) Manifold</em></strong></p>
+  <h1>VGGT-SLAM 2.0</h1>
 
-  <p align="center">
-    <a href="https://dominic101.github.io/DominicMaggio/"><strong>Dominic Maggio</strong></a>
-    ·
-    <a href="https://limhyungtae.github.io/hyungtae-lim/"><strong>Hyungtae Lim</strong></a>
-    ·
-    <a href="https://lucacarlone.mit.edu/"><strong>Luca Carlone</strong></a>
+  <p>
+    <strong>VGGT-SLAM</strong> 
+    <a href="https://arxiv.org/abs/2505.12549">
+      <img src="https://img.shields.io/badge/arXiv-b33737?logo=arXiv" alt="arXiv" style="vertical-align:middle">
+    </a>
+    &nbsp;&nbsp;&nbsp;&nbsp;
+    <strong>VGGT-SLAM 2.0</strong> 
+    <a href="https://arxiv.org/abs/2601.19887">
+      <img src="https://img.shields.io/badge/arXiv-b33737?logo=arXiv" alt="arXiv" style="vertical-align:middle">
+    </a>
   </p>
 
+  <br />
+
+  <img src="assets/vggt_slam_demo.gif" alt="VGGT-SLAM" width="95%"/>
+
+  <p><strong><em>VGGT-SLAM 2.0: Real-time Dense Feed-forward Scene Reconstruction</em></strong></p>
+
+  <p>
+    <a href="https://dominic101.github.io/DominicMaggio/"><strong>Dominic Maggio</strong></a> &nbsp;·&nbsp;
+    <a href="https://lucacarlone.mit.edu/"><strong>Luca Carlone</strong></a>
+  </p>
 </div>
 
 ---
+
+# This repo contains the code for VGGT-SLAM 2.0 (located here) and VGGT-SLAM (located on the version1.0 branch of this repo).
 
 ## 📚 Table of Contents
 * [💻 Installation](#installation-of-vGGT-sLAM)
@@ -32,16 +40,7 @@
 
 ## Installation of VGGT-SLAM
 
-<!-- We created a Hugging Face Space [here]() where you can quickly run an example of VGGT-SLAM. To install 
-VGGT-SLAM locally, which also enables a more detailed visualization built with Viser, use the following instructions.  -->
-
-Make sure the following dependencies are installed before building the project:
-
-```
-sudo apt-get install git python3-pip libboost-all-dev cmake gcc g++ unzip
-```
-
-Then, clone VGGT-SLAM:
+Clone VGGT-SLAM:
 
 ```
 git clone https://github.com/MIT-SPARK/VGGT-SLAM
@@ -62,9 +61,11 @@ conda activate vggt-slam
 ```
 
 ### Make the setup script executable and run it
-This step will automatically download all 3rd party packages including VGGT. More details on the license for VGGT can be found [here](https://github.com/facebookresearch/vggt/blob/main/LICENSE.txt).
+This step will automatically download all 3rd party packages including Perception Encoder, SAM 3, and our fork of VGGT. More details on the license for Perception Encoder 
+can be found [here](https://github.com/facebookresearch/perception_models/blob/main/LICENSE.PE), for SAM3 can be found [here](https://github.com/facebookresearch/sam3/blob/main/LICENSE), and for VGGT can be found [here](https://github.com/facebookresearch/vggt/blob/main/LICENSE.txt). Note that we only use SAM 3 and Perception Encoder for optional open-set 3D object detection.
 
 ```
+chmod +x setup.sh
 ./setup.sh
 ```
 
@@ -88,13 +89,13 @@ and then run the below command:
 python3 main.py --image_folder office_loop --max_loops 1 --vis_map
 ```
 
+Use the `--run_os` flag to enable 3D open-set object detection. This will prompt the user for text queries and plot a 3D bounding box of the detection on the map in viser. The office loop scene does not have very many interesting objects, but some example queries that can be used are "coffee machine", "sink", "printer", "cone", and "refrigerator." For some example scenes with more interesting objects, check out the Clio apartment and cubicle scene which can be downloaded 
+from [here](https://www.dropbox.com/scl/fo/5bkv8rsa2xvwmvom6bmza/AOc8VW71kuZCgQjcw_REbWA?rlkey=wx1njghufcxconm1znidc1hgw&e=1&st=c809h8h3&dl=0).
+
 <p align="center">
-  <img src="assets/office-loop-figure" width="300">
+  <img src="assets/office_loop_figure.png" width="300">
 </p>
 
-*Running in the default SL(4) mode on this folder will show significant drift 
-in the projective degrees of freedom before the loop closure, and the drift will be corrected after the loop closure. You may notice drift in other scenes as well if the system goes too long without a loop closure. We are actively working on an upgraded 
-VGGT-SLAM that will have significantly reduced drift and other major updates so stay tuned!*
 
 ### Collecting Custom Data
 
@@ -109,12 +110,11 @@ And then, run the command below:
 ```
 ffmpeg -i /path/to/video.MOV -vf "fps=10" <desired_location>/img_folder/frame_%04d.jpg
 ```
+Note while vertical cell phone videos can work, to avoid images being cropped it is recommended to use horizontal videos. 
 
 ### Adjusting Parameters
 
 See main.py or run `--help` from main.py to view all parameters. 
-We use SL(4) mode by default, and Sim(3) mode can be enabled with `--use_sim3`. Sim(3) mode will generally have less drift than SL(4) but will not always 
-be sufficient for alignment (see paper for in depth discussion on the advantages of SL(4)).
 
 ---
 
@@ -136,42 +136,30 @@ the submap size, for example:
 python evals/process_logs_tum.py --submap_size 32
 ```
 
-
-#### In 7-Scenes Dataset
-
-To run on 7-Scenes, run `./evals/eval_7scenes.sh <w>` and then run `python evals/process_logs_7scenes.py <w>` to analyze and print the results, where w is 
-the submap size, for example:
-
-```
-./evals/eval_7scenes.sh 32
-```
-
-```
-python evals/process_logs_7scenes.py 32
-```
-
---- 
-
-By default, ever scene will be run for 5 trials, this can be changed inside the bash scripts.
-
 To visualize the maps as they being constructed, inside the bash scripts add `--vis_map`. This will update the viser map each time the submap is updated. 
 
 ## News and Updates
-
+* May 2025: VGGT-SLAM 1.0 is released
 * August 2025: SL(4) optimization is integrated into the official GTSAM repo
-* September 2025: Accepted to Neurips 2025
-* November 2025: Featured in MIT News [article](https://news.mit.edu/2025/teaching-robots-to-map-large-environments-1105)
+* September 2025: VGGT-SLAM 1.0 Accepted to Neurips 2025
+* November 2025: VGGT-SLAM 1.0 Featured in MIT News [article](https://news.mit.edu/2025/teaching-robots-to-map-large-environments-1105)
+* January 2026: VGGT-SLAM 2.0 is released
+
+## Todo
+
+- [ ] Release real-time code. This code enables plugging in a Real Sense Camera and incrementally constructing a map 
+as the camera explored a scene. This has been tested on a Jetson Thor onboard a robot.
+- [ ] Add optional code to sparsify the visualized map as visualizing large point cloud maps can slow down the code.
 
 ## Acknowledgement
 
-This work is supported in part by the NSF Graduate Research Fellowship Program under Grant
-2141064, the ONR RAPID program, and the National Research Foundation of Korea (NRF) grant
-funded by the Korea government (MSIT) (No. RS-2024-00461409). The authors would like to
-gratefully acknowledge Riku Murai for assisting us with benchmarking.
+This work was supported in part by the NSF Graduate Research Fellowship
+Program under Grant 2141064, the ARL DCIST program, and the ONR
+RAPID program.
 
 ## Citation
 
-If our code is helpful, please cite our paper as follows:
+If our code is helpful, please cite our papers as follows:
 
 ```
 @article{maggio2025vggt-slam,
@@ -180,6 +168,15 @@ If our code is helpful, please cite our paper as follows:
   journal={Advances in Neural Information Processing Systems},
   volume={39},
   year={2025}
+}
+```
+
+```
+@article{maggio2025vggt-slam2,
+  title={VGGT-SLAM 2.0: Real-time Dense Feed-forward Scene Reconstruction},
+  author={Maggio, Dominic and Carlone, Luca},
+  journal={arXiv preprint arXiv:2601.19887},
+  year={2026}
 }
 ```
 

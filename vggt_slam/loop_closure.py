@@ -9,7 +9,6 @@ import os
 
 from salad.eval import load_model # load salad
 
-
 device = 'cuda'
 
 tensor_transform = T.ToPILImage()
@@ -52,7 +51,7 @@ class LoopMatchQueue:
 
 class ImageRetrieval:
     def __init__(self, input_size=224):
-        torch.hub.load("serizba/salad", "dinov2_salad")
+
         ckpt_pth = os.path.join(torch.hub.get_dir(), "checkpoints/dino_salad.ckpt")
         self.model = load_model(ckpt_pth)
         self.model.eval()
@@ -75,7 +74,7 @@ class ImageRetrieval:
         frames = submap.get_all_frames()
         return self.get_batch_descriptors(frames)
 
-    def find_loop_closures(self, map, submap, max_similarity_thres = 0.80, max_loop_closures = 0): # TODO make these paramaters in a config file
+    def find_loop_closures(self, map, submap, max_similarity_thres = 0.80, max_loop_closures = 0):
         matches_queue = LoopMatchQueue(max_size=max_loop_closures)
         query_id = 0
         for query_vector in submap.get_all_retrieval_vectors():
@@ -86,32 +85,3 @@ class ImageRetrieval:
             query_id += 1
         
         return matches_queue.get_matches()
-
-
-def is_point_in_fov(K, T_wc, point_world, image_size, fov_padding=0.0):
-    """
-    Check if a 3D point is inside the camera frustum defined by K and T_wc.
-    """
-    T_cw = np.linalg.inv(T_wc)  # World to camera
-    point_cam = T_cw[:3, :3] @ point_world + T_cw[:3, 3]
-
-    if point_cam[2] <= 0:
-        return False  # Point is behind the camera
-
-    x = (K[0, 0] * point_cam[0]) / point_cam[2] + K[0, 2]
-    y = (K[1, 1] * point_cam[1]) / point_cam[2] + K[1, 2]
-
-    w, h = image_size
-    return (0 - fov_padding) <= x <= (w + fov_padding) and (0 - fov_padding) <= y <= (h + fov_padding)
-
-def frustums_overlap(K1, T1, K2, T2, image_size):
-    """
-    Check if the frustums of two cameras overlap by testing if their centers fall into each other's frustum.
-    """
-    center1 = T1[:3, 3]
-    center2 = T2[:3, 3]
-
-    in_fov1 = is_point_in_fov(K1, T1, center2, image_size)
-    in_fov2 = is_point_in_fov(K2, T2, center1, image_size)
-
-    return in_fov1 or in_fov2

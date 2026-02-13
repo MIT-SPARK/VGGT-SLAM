@@ -1,7 +1,6 @@
 torch==2.3.1
 torchvision==0.18.1
 numpy
-cmake
 Pillow
 open3d
 huggingface_hub
@@ -22,3 +21,5 @@ matplotlib
 virtualenv>=20.10.0
 lz4
 gtsam-develop
+ftfy 
+regex 
