@@ -37,9 +37,11 @@ def debug_visualize(pcd1_points, pcd2_points):
 class Solver:
     def __init__(self,
         init_conf_threshold: float,  # represents percentage (e.g., 50 means filter lowest 50%)
-        lc_thres: float = 0.80,):
+        lc_thres: float = 0.80,
+        vis_voxel_size: float = None):
         
         self.init_conf_threshold = init_conf_threshold
+        self.vis_voxel_size = vis_voxel_size
 
         self.viewer = Viewer()
 
@@ -58,6 +60,13 @@ class Solver:
         self.clip_timer = Accumulator()
 
     def set_point_cloud(self, points_in_world_frame, points_colors, name, point_size):
+        if self.vis_voxel_size is not None:
+            pcd = o3d.geometry.PointCloud()
+            pcd.points = o3d.utility.Vector3dVector(points_in_world_frame.astype(np.float64))
+            pcd.colors = o3d.utility.Vector3dVector(points_colors.astype(np.float64) / 255.0)
+            pcd = pcd.voxel_down_sample(self.vis_voxel_size)
+            points_in_world_frame = np.asarray(pcd.points, dtype=np.float32)
+            points_colors = (np.asarray(pcd.colors) * 255).astype(np.uint8)
         self.viewer.server.scene.add_point_cloud(
             name="pcd_"+name,
             points=points_in_world_frame,
