@@ -116,6 +116,9 @@ Note while vertical cell phone videos can work, to avoid images being cropped it
 
 See main.py or run `--help` from main.py to view all parameters. 
 
+For visualizing larger datasets, displaying all 3D points in Viser can either slow or crash 
+the visualizer. One way to mitigate this is to sparsify the point cloud that is sent to Viser which can be done with `--vis_voxel_size 0.005`. Increasing the number will decrease the number of displayed points. Note that this does not affect the number of points stored or used internally in VGGT-SLAM.
+
 ---
 
 ## Running Evaluations
