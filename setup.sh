@@ -39,17 +39,4 @@ cd ..
 echo "Installing current repo..."
 pip install -e .
 
-echo "Ensuring SALAD checkpoint exists..."
-python - <<'PY'
-from pathlib import Path
-import torch
-
-ckpt_url = "https://github.com/serizba/salad/releases/download/v1.0.0/dino_salad.ckpt"
-ckpt_path = Path(torch.hub.get_dir()) / "checkpoints" / "dino_salad.ckpt"
-if not ckpt_path.is_file() or ckpt_path.stat().st_size == 0:
-    ckpt_path.parent.mkdir(parents=True, exist_ok=True)
-    print(f"Downloading SALAD checkpoint to {ckpt_path}")
-    torch.hub.download_url_to_file(ckpt_url, str(ckpt_path))
-PY
-
 echo "Installation Complete"
