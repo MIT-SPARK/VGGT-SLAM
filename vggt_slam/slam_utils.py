@@ -24,7 +24,7 @@ def sort_images_by_number(image_paths):
     def extract_number(path):
         filename = os.path.basename(path)
         # Look for digits followed immediately by a dot and the extension
-        match = re.search(r'\d+(?=\.[^.]+$)', filename)
+        match = re.search(r'\d+(?:\.\d+)?(?=\.[^.]+$)', filename)
         return float(match.group()) if match else float('inf')
 
     return sorted(image_paths, key=extract_number)
