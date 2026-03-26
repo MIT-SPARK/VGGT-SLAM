@@ -38,10 +38,12 @@ class Solver:
     def __init__(self,
         init_conf_threshold: float,  # represents percentage (e.g., 50 means filter lowest 50%)
         lc_thres: float = 0.80,
-        vis_voxel_size: float = None):
+        vis_voxel_size: float = None,
+        num_overlap_frames: int = 1):
         
         self.init_conf_threshold = init_conf_threshold
         self.vis_voxel_size = vis_voxel_size
+        self.num_overlap_frames = num_overlap_frames
 
         self.viewer = Viewer()
 
@@ -122,35 +124,42 @@ class Solver:
         H_w_submap = np.eye(4)
         if submap_id_prev is not None:
             overlapping_node_id_prev = submap_id_prev + frame_id_prev
-
-            # Estimate scale factor between submaps.
             prior_submap = self.map.get_submap(submap_id_prev)
 
-            current_conf = current_submap.get_conf_masks_frame(frame_id_curr)
-            prior_conf = prior_submap.get_conf_masks_frame(frame_id_prev)
-            good_mask = (prior_conf > prior_submap.get_conf_threshold()) * (current_conf > prior_submap.get_conf_threshold())
-            good_mask = good_mask.reshape(-1)
+            # Estimate scale factor by averaging over all D overlap pairs.
+            num_overlap = self.num_overlap_frames if not is_loop_closure else 1
+            scale_factors = []
+            for d in range(num_overlap):
+                prev_idx = frame_id_prev + d
+                curr_idx = frame_id_curr + d
 
-            if np.sum(good_mask) < 100:
-                print(colored("Not enough overlapping points to estimate scale factor, using a less restrictive mask", 'red'))
-                good_mask = (prior_conf > prior_submap.get_conf_threshold()).reshape(-1)
-                if np.sum(good_mask) < 100: # Handle the case where loop closure frames do not have enough points. 
-                    good_mask = (prior_conf > 0).reshape(-1)
+                current_conf = current_submap.get_conf_masks_frame(curr_idx)
+                prior_conf = prior_submap.get_conf_masks_frame(prev_idx)
+                good_mask = (prior_conf > prior_submap.get_conf_threshold()) * (current_conf > current_submap.get_conf_threshold())
+                good_mask = good_mask.reshape(-1)
 
-            P_temp = np.linalg.inv(prior_submap.proj_mats[-1]) @ current_submap.proj_mats[0]
-            t1 = (P_temp[0:3,0:3] @ current_submap.get_frame_pointcloud(frame_id_curr).reshape(-1, 3)[good_mask].T).T
-            t2 = prior_submap.get_frame_pointcloud(frame_id_prev).reshape(-1, 3)[good_mask]
-            scale_factor_est_output = estimate_scale_pairwise(t1, t2)
-            print(colored("scale factor", 'green'), scale_factor_est_output)
-            scale_factor = scale_factor_est_output[0]
+                if np.sum(good_mask) < 100:
+                    print(colored("Not enough overlapping points to estimate scale factor, using a less restrictive mask", 'red'))
+                    good_mask = (prior_conf > prior_submap.get_conf_threshold()).reshape(-1)
+                    if np.sum(good_mask) < 100:
+                        good_mask = (prior_conf > 0).reshape(-1)
+
+                P_temp = np.linalg.inv(prior_submap.proj_mats[prev_idx]) @ current_submap.proj_mats[curr_idx]
+                t1_pts = (P_temp[0:3,0:3] @ current_submap.get_frame_pointcloud(curr_idx).reshape(-1, 3)[good_mask].T).T
+                t2_pts = prior_submap.get_frame_pointcloud(prev_idx).reshape(-1, 3)[good_mask]
+                pair_scale = estimate_scale_pairwise(t1_pts, t2_pts)[0]
+                scale_factors.append(pair_scale)
+
+                if DEBUG:
+                    print(f"Scale factor for overlap pair {d}:", pair_scale)
+                    debug_visualize(pair_scale * t1_pts, t2_pts)
+
+            scale_factor = np.mean(scale_factors)
+            print(colored(f"scale factor (avg of {num_overlap} pairs)", 'green'), scale_factor)
             H_scale = np.diag((scale_factor, scale_factor, scale_factor, 1.0))
 
-            if DEBUG:
-                print("Estimated scale factor between submaps:", scale_factor)
-                debug_visualize(scale_factor*t1, t2)
-
-            # Compute the first camera matrix of the new submap in world frame.
-            H_overlap_prior_overlap_current = np.linalg.inv(prior_submap.proj_mats[-1]) @ current_submap.proj_mats[0] @ H_scale
+            # Compute the first camera matrix of the new submap in world frame using the first overlap pair.
+            H_overlap_prior_overlap_current = np.linalg.inv(prior_submap.proj_mats[frame_id_prev]) @ current_submap.proj_mats[frame_id_curr] @ H_scale
             H_w_submap = self.graph.get_homography(overlapping_node_id_prev) @ H_overlap_prior_overlap_current
 
             # Add first node of the new submap to the graph.
@@ -175,13 +184,12 @@ class Solver:
         if is_loop_closure:
             return
 
-        # Add nodes and edges for the inner submap constraints.
+        # Add nodes and edges for the inner submap constraints (only for graph frames, not overlap-only frames).
         world_to_cam = current_submap.get_all_poses()
-        for index, pose in enumerate(world_to_cam):
-            if index == 0:
-                continue
-
-            H_inner = world_to_cam[index-1] @ np.linalg.inv(pose) # TODO Dominic, no need to take the inverse twice, just use cam_to_world
+        num_graph_frames = current_submap.get_last_non_loop_frame_index() + 1
+        for index in range(1, num_graph_frames):
+            pose = world_to_cam[index]
+            H_inner = world_to_cam[index-1] @ np.linalg.inv(pose)
             current_node = self.graph.get_homography(submap_id_curr + index - 1) @ H_inner
 
             # Add node to graph.
@@ -295,7 +303,7 @@ class Solver:
         pixel_coords = torch.stack((y_coords, x_coords), dim=1)
         return pixel_coords
 
-    def run_predictions(self, image_names, model, max_loops, clip_model, clip_preprocess):
+    def run_predictions(self, image_names, model, max_loops, clip_model, clip_preprocess, is_last_submap: bool = False):
         device = "cuda" if torch.cuda.is_available() else "cpu"
         t1 = time.time()
         with self.vggt_timer:
@@ -317,7 +325,8 @@ class Solver:
         new_submap = Submap(new_pcd_num)
         new_submap.add_all_frames(images)
         new_submap.set_frame_ids(image_names)
-        new_submap.set_last_non_loop_frame_index(images.shape[0] - 1)
+        effective_overlap = 1 if is_last_submap else self.num_overlap_frames
+        new_submap.set_last_non_loop_frame_index(images.shape[0] - effective_overlap)
         new_submap.set_all_retrieval_vectors(self.image_retrieval.get_all_submap_embeddings(new_submap))
         new_submap.set_img_names(image_names)
 

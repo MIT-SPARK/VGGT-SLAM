@@ -117,7 +117,7 @@ class GraphMap:
     def get_all_homographies(self, graph):
         homographies = []
         for submap in self.ordered_submaps_by_key():
-            for pose_num in range(len(submap.poses)):
+            for pose_num in range(submap.get_num_graph_frames()):
                 id = int(submap.get_id() + pose_num)
                 homographies.append(graph.get_homography(id))
         return np.stack(homographies)
@@ -142,7 +142,7 @@ class GraphMap:
             for submap_index, submap in enumerate(self.ordered_submaps_by_key()):
                 if submap.get_lc_status():
                     continue
-                frame_ids = submap.get_frame_ids()
+                frame_ids = submap.get_frame_ids()[:submap.get_num_graph_frames()]
                 print(frame_ids)
                 for frame_index, frame_id in enumerate(frame_ids):
                     pose = all_poses[count]

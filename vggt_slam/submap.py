@@ -66,6 +66,10 @@ class Submap:
     
     def get_last_non_loop_frame_index(self):
         return self.last_non_loop_frame_index
+
+    def get_num_graph_frames(self) -> int:
+        """Return the number of frames in this submap that have graph nodes."""
+        return self.last_non_loop_frame_index + 1
     
     def get_img_names_at_index(self, index):
         return self.img_names[index]
@@ -112,7 +116,8 @@ class Submap:
         return self.poses
 
     def get_all_poses_world(self, graph, give_camera_mat=False):
-        homography_list = [graph.get_homography(i + self.get_id()) for i in range(len(self.poses))]
+        num_graph_frames = self.get_num_graph_frames()
+        homography_list = [graph.get_homography(i + self.get_id()) for i in range(num_graph_frames)]
         poses = []
         for index, homography_world in enumerate(homography_list):
             projection_mat = self.proj_mats[index] @ np.linalg.inv(homography_world) # TODO HERE
@@ -172,11 +177,12 @@ class Submap:
         return data[init_conf_mask]
 
     def get_points_list_in_world_frame(self, graph, rectifing_homographies=None):
-        homography_list = [graph.get_homography(i + self.get_id()) for i in range(len(self.poses))]
+        num_graph_frames = self.get_num_graph_frames()
+        homography_list = [graph.get_homography(i + self.get_id()) for i in range(num_graph_frames)]
         point_list = []
         frame_id_list = []
         frame_conf_mask = []
-        for index in  range(len(self.pointclouds)):
+        for index in range(num_graph_frames):
             points = self.pointclouds[index]
             points_flat = points.reshape(-1, 3)
             points_homogeneous = np.hstack([points_flat, np.ones((points_flat.shape[0], 1))])
@@ -190,9 +196,10 @@ class Submap:
         return point_list, frame_id_list, frame_conf_mask
 
     def get_points_in_world_frame(self, graph):
-        homography_list = [graph.get_homography(i + self.get_id()) for i in range(len(self.poses))]
+        num_graph_frames = self.get_num_graph_frames()
+        homography_list = [graph.get_homography(i + self.get_id()) for i in range(num_graph_frames)]
         points_all = None
-        for index in  range(len(self.pointclouds)):
+        for index in range(num_graph_frames):
             points = self.pointclouds[index]
             points_flat = points.reshape(-1, 3)
             points_homogeneous = np.hstack([points_flat, np.ones((points_flat.shape[0], 1))])
@@ -238,8 +245,11 @@ class Submap:
         return voxelized_points_in_world_frame
     
     def get_points_colors(self):
-        colors = self.filter_data_by_confidence(self.colors)
-        return colors.reshape(-1, 3)
+        num_graph_frames = self.get_num_graph_frames()
+        colors = self.colors[:num_graph_frames]
+        conf = self.conf[:num_graph_frames]
+        conf_mask = conf > self.conf_threshold
+        return colors[conf_mask].reshape(-1, 3)
 
     def get_all_semantic_vectors(self):
         return self.semantic_vectors

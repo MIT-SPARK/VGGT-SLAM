@@ -145,7 +145,7 @@ class PoseGraph:
         for submap in map.ordered_submaps_by_key():
             if submap.get_lc_status():
                 continue
-            for pose_num in range(len(submap.poses)):
+            for pose_num in range(submap.get_num_graph_frames()):
                 id = int(submap.get_id() + pose_num)
                 self.auto_cal_H_mats[id] = np.linalg.inv(auto_cal_H_mats[count])
                 count += 1

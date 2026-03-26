@@ -26,7 +26,7 @@ parser.add_argument("--log_results", action="store_true", help="save txt file wi
 parser.add_argument("--skip_dense_log", action="store_true", help="by default, logging poses and logs dense point clouds. If this flag is set, dense logging is skipped")
 parser.add_argument("--log_path", type=str, default="poses.txt", help="Path to save the log file")
 parser.add_argument("--submap_size", type=int, default=16, help="Number of new frames per submap, does not include overlapping frames or loop closure frames")
-parser.add_argument("--overlapping_window_size", type=int, default=1, help="ONLY DEFAULT OF 1 SUPPORTED RIGHT NOW. Number of overlapping frames, which are used in SL(4) estimation")
+parser.add_argument("--overlapping_window_size", type=int, default=1, help="Number of overlapping frames (D) between submaps, used for scale correction")
 parser.add_argument("--max_loops", type=int, default=1, help="ONLY DEFAULT OF 1 SUPPORTED RIGHT NOW or 0 to disable loop closures.")
 parser.add_argument("--min_disparity", type=float, default=50, help="Minimum disparity to generate a new keyframe")
 parser.add_argument("--conf_threshold", type=float, default=25.0, help="Initial percentage of low-confidence points to filter out")
@@ -46,7 +46,8 @@ def main():
     solver = Solver(
         init_conf_threshold=args.conf_threshold,
         lc_thres=args.lc_thres,
-        vis_voxel_size=args.vis_voxel_size
+        vis_voxel_size=args.vis_voxel_size,
+        num_overlap_frames=args.overlapping_window_size
     )
 
     print("Initializing and loading VGGT model...")
@@ -106,11 +107,12 @@ def main():
             image_names_subset.append(image_name)
 
         # Run submap processing if enough images are collected or if it's the last group of images.
-        if len(image_names_subset) == args.submap_size + args.overlapping_window_size or image_name == image_names[-1]:
+        is_last_submap = (image_name == image_names[-1])
+        if len(image_names_subset) == args.submap_size + args.overlapping_window_size or is_last_submap:
             count += 1
             print(image_names_subset)
             t1 = time.time()
-            predictions = solver.run_predictions(image_names_subset, model, args.max_loops, clip_model, clip_preprocess)
+            predictions = solver.run_predictions(image_names_subset, model, args.max_loops, clip_model, clip_preprocess, is_last_submap=is_last_submap)
             print("Solver total time", time.time()-t1)
             print(count, "submaps processed")
 
