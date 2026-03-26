@@ -127,7 +127,11 @@ class Solver:
             prior_submap = self.map.get_submap(submap_id_prev)
 
             # Estimate scale factor by averaging over all D overlap pairs.
+            # Cap by available frames in both submaps (handles LC submaps which have only 2 frames).
             num_overlap = self.num_overlap_frames if not is_loop_closure else 1
+            max_prior_frames = len(prior_submap.poses) - frame_id_prev
+            max_curr_frames = len(current_submap.poses) - frame_id_curr
+            num_overlap = min(num_overlap, max_prior_frames, max_curr_frames)
             scale_factors = []
             for d in range(num_overlap):
                 prev_idx = frame_id_prev + d

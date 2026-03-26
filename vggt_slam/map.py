@@ -82,7 +82,7 @@ class GraphMap:
                 submap = self.submaps[submap_key]
                 if submap.get_lc_status():
                     continue
-                submap_embeddings = submap.get_all_retrieval_vectors()
+                submap_embeddings = submap.get_all_retrieval_vectors()[:submap.get_num_graph_frames()]
                 scores = []
                 for index, embedding in enumerate(submap_embeddings):
                     score = torch.linalg.norm(embedding-query_vector)

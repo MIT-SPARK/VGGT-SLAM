@@ -77,7 +77,8 @@ class ImageRetrieval:
     def find_loop_closures(self, map, submap, max_similarity_thres = 0.80, max_loop_closures = 0):
         matches_queue = LoopMatchQueue(max_size=max_loop_closures)
         query_id = 0
-        for query_vector in submap.get_all_retrieval_vectors():
+        graph_vectors = submap.get_all_retrieval_vectors()[:submap.get_num_graph_frames()]
+        for query_vector in graph_vectors:
             best_score, best_submap_id, best_frame_id = map.retrieve_best_score_frame(query_vector, submap.get_id(), ignore_last_submap=True)
             if best_score < max_similarity_thres:
                 new_match_data = LoopMatch(best_score, submap.get_id(), query_id, best_submap_id, best_frame_id)
