@@ -25,8 +25,8 @@ parser.add_argument("--vis_flow", action="store_true", help="Visualize optical f
 parser.add_argument("--log_results", action="store_true", help="save txt file with results")
 parser.add_argument("--skip_dense_log", action="store_true", help="by default, logging poses and logs dense point clouds. If this flag is set, dense logging is skipped")
 parser.add_argument("--log_path", type=str, default="poses.txt", help="Path to save the log file")
-parser.add_argument("--submap_size", type=int, default=16, help="Number of new frames per submap, does not include overlapping frames or loop closure frames")
-parser.add_argument("--overlapping_window_size", type=int, default=1, help="Number of overlapping frames (D) between submaps, used for scale correction")
+parser.add_argument("--submap_size", type=int, default=16, help="Total number of frames per submap (M+D), including overlapping frames")
+parser.add_argument("--overlapping_window_size", type=int, default=1, help="Number of overlapping frames (D) between submaps, must be less than half of submap_size")
 parser.add_argument("--max_loops", type=int, default=1, help="ONLY DEFAULT OF 1 SUPPORTED RIGHT NOW or 0 to disable loop closures.")
 parser.add_argument("--min_disparity", type=float, default=50, help="Minimum disparity to generate a new keyframe")
 parser.add_argument("--conf_threshold", type=float, default=25.0, help="Initial percentage of low-confidence points to filter out")
@@ -38,6 +38,12 @@ def main():
     Main function that wraps the entire pipeline of VGGT-SLAM.
     """
     args = parser.parse_args()
+
+    if args.overlapping_window_size >= args.submap_size // 2:
+        parser.error(
+            f"overlapping_window_size ({args.overlapping_window_size}) must be "
+            f"less than half of submap_size ({args.submap_size})"
+        )
 
     use_optical_flow_downsample = True
     device = "cuda" if torch.cuda.is_available() else "cpu"
@@ -108,7 +114,7 @@ def main():
 
         # Run submap processing if enough images are collected or if it's the last group of images.
         is_last_submap = (image_name == image_names[-1])
-        if len(image_names_subset) == args.submap_size + args.overlapping_window_size or is_last_submap:
+        if len(image_names_subset) == args.submap_size or is_last_submap:
             count += 1
             print(image_names_subset)
             t1 = time.time()
