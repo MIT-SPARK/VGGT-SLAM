@@ -20,6 +20,11 @@ from vggt_slam.submap import Submap
 from vggt_slam.graph import PoseGraph
 from vggt_slam.scale_solver import estimate_scale_pairwise
 from vggt_slam.viewer import Viewer
+<<<<<<< HEAD
+=======
+from vggt.utils.eval_utils import get_vgg_input_imgs, load_images_rgb
+
+>>>>>>> 8ed9c22 (add token merge)
 
 DEBUG = False
 
@@ -298,13 +303,16 @@ class Solver:
     def run_predictions(self, image_names, model, max_loops, clip_model, clip_preprocess):
         device = "cuda" if torch.cuda.is_available() else "cpu"
         t1 = time.time()
-        with self.vggt_timer:
-            images = load_and_preprocess_images(image_names).to(device)
+
+        images = load_images_rgb(image_names)
+        images_array = np.stack(images)
+        vgg_input, patch_width, patch_height = get_vgg_input_imgs(images_array)
         print(f"Loaded and preprocessed {len(image_names)} images in {time.time() - t1:.2f} seconds")
-        print(f"Preprocessed images shape: {images.shape}")
+        print(f"Preprocessed images shape: {images_array.shape}")
 
         # print("Running inference...")
         dtype = torch.bfloat16 if torch.cuda.get_device_capability()[0] >= 8 else torch.float16
+        # dtype = torch.float16
 
         # First submap so set new pcd num to 0
         if self.map.get_largest_key() is None:
@@ -315,9 +323,9 @@ class Solver:
         print(f"Creating new submap with id {new_pcd_num}")
         t1 = time.time()
         new_submap = Submap(new_pcd_num)
-        new_submap.add_all_frames(images)
+        new_submap.add_all_frames(vgg_input.to(torch.float16).cpu())
         new_submap.set_frame_ids(image_names)
-        new_submap.set_last_non_loop_frame_index(images.shape[0] - 1)
+        new_submap.set_last_non_loop_frame_index(images_array.shape[0] - 1)
         new_submap.set_all_retrieval_vectors(self.image_retrieval.get_all_submap_embeddings(new_submap))
         new_submap.set_img_names(image_names)
 
@@ -328,12 +336,11 @@ class Solver:
 
         self.current_working_submap = new_submap
         print(f"Created new submap in {time.time() - t1:.2f} seconds")
+        model.update_patch_dimensions(patch_width, patch_height)
 
         with torch.no_grad():
-            t1 = time.time()
-            with self.vggt_timer:
-                predictions = model(images)
-            print(f"VGGT model inference took {time.time() - t1:.2f} seconds")
+            with torch.amp.autocast(device, dtype=dtype):
+                predictions = model(vgg_input.to(device).to(dtype))
 
         # Check for loop closures and add retrieval vectors from new submap to the database
         predictions_lc = None
@@ -344,10 +351,11 @@ class Solver:
             print(colored("detected_loops", "yellow"), detected_loops)
             retrieved_frames = self.map.get_frames_from_loops(detected_loops)
             with torch.no_grad():
-                lc_frames = torch.stack((new_submap.get_frame_at_index(detected_loops[0].query_submap_frame), retrieved_frames[0]), axis=0)
-                predictions_lc = model(lc_frames, compute_similarity=True)
-                loop_closure_frame_names = [new_submap.get_img_names_at_index(detected_loops[0].query_submap_frame), 
-                self.map.get_submap(detected_loops[0].detected_submap_id).get_img_names_at_index(detected_loops[0].detected_submap_frame)]
+                with torch.amp.autocast(device, dtype=dtype):
+                    lc_frames = torch.stack((new_submap.get_frame_at_index(detected_loops[0].query_submap_frame), retrieved_frames[0]), axis=0)
+                    predictions_lc = model(lc_frames.to(device), compute_similarity=True)
+                    loop_closure_frame_names = [new_submap.get_img_names_at_index(detected_loops[0].query_submap_frame), 
+                    self.map.get_submap(detected_loops[0].detected_submap_id).get_img_names_at_index(detected_loops[0].detected_submap_frame)]
 
             # Visualize loop closure frames
             if DEBUG:
@@ -361,7 +369,7 @@ class Solver:
                 plt.show()
 
         print("Converting pose encoding to extrinsic and intrinsic matrices...")
-        extrinsic, intrinsic = pose_encoding_to_extri_intri(predictions["pose_enc"], images.shape[-2:])
+        extrinsic, intrinsic = pose_encoding_to_extri_intri(predictions["pose_enc"], vgg_input.shape[-2:])
         predictions["extrinsic"] = extrinsic
         predictions["intrinsic"] = intrinsic
 
