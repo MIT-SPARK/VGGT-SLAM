@@ -1,10 +1,11 @@
 #!/bin/bash
 
-abs_dir="/home/<user>/Documents"
-submap_size=${1:-16} # Default to 16 if not provided
-dataset_path="${abs_dir%/}/MASt3R-SLAM/datasets/tum/"
-gt_path="${abs_dir%/}/MASt3R-SLAM/datasets/tum/"
-log_path="$(pwd)/logs/tum_results_w${submap_size}.txt"
+abs_dir="/home/neelay/16833_ws/src/VGGT-SLAM/"
+submap_size=${1:-16}
+overlap_size=${2:-1}
+dataset_path="${abs_dir%/}/datasets/tum/"
+gt_path="${abs_dir%/}/datasets/tum/"
+log_path="$(pwd)/logs/tum_results_w${submap_size}_d${overlap_size}.txt"
 
 mkdir -p "$(pwd)/logs"
 
@@ -37,12 +38,12 @@ for run in $(seq 1 $n); do
     for dataset in "${datasets[@]}"; do
         echo "Running main.py on $dataset (Run $run)"
         dataset_name="${dataset_path}${dataset}/rgb"
-        python main.py --image_folder "$dataset_name" --max_loops 1 --min_disparity 50 --conf_threshold 25 --lc_thres 0.95 --submap_size "$submap_size" --log_results --skip_dense_log --log_path "$(pwd)/logs/${dataset}_run${run}_w${submap_size}.txt"
+        python main.py --image_folder "$dataset_name" --max_loops 1 --min_disparity 50 --conf_threshold 25 --lc_thres 0.95 --submap_size "$submap_size" --overlapping_window_size "$overlap_size" --log_results --skip_dense_log --log_path "$(pwd)/logs/${dataset}_run${run}_w${submap_size}_d${overlap_size}.txt"
     done
 
     for dataset in "${datasets[@]}"; do
         echo "Evaluating $dataset (Run $run)"
-        est_path="$(pwd)/logs/${dataset}_run${run}_w${submap_size}.txt"
+        est_path="$(pwd)/logs/${dataset}_run${run}_w${submap_size}_d${overlap_size}.txt"
         gt_file="${gt_path}${dataset}/groundtruth.txt"
 
         ape_result=$(evo_ape tum "$gt_file" "$est_path" -as)
