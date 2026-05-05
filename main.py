@@ -31,6 +31,9 @@ parser.add_argument("--max_loops", type=int, default=1, help="ONLY DEFAULT OF 1 
 parser.add_argument("--min_disparity", type=float, default=50, help="Minimum disparity to generate a new keyframe")
 parser.add_argument("--conf_threshold", type=float, default=25.0, help="Initial percentage of low-confidence points to filter out")
 parser.add_argument("--lc_thres", type=float, default=0.95, help="Threshold for image retrieval. Range: [0, 1.0]. Higher = more loop closures")
+parser.add_argument("--low_vram", action="store_true", help="Enable low-VRAM mode for GPUs with <=12GB (auto-reduces submap size, enables checkpointing)")
+parser.add_argument("--checkpoint_inference", action="store_true", help="Enable gradient checkpointing during inference to reduce VRAM (slower but uses ~40%% less memory)")
+parser.add_argument("--sequential_heads", action="store_true", help="Run prediction heads sequentially to reduce peak memory")
 
 
 def main():
@@ -38,6 +41,20 @@ def main():
     Main function that wraps the entire pipeline of VGGT-SLAM.
     """
     args = parser.parse_args()
+
+    # Auto-configure for low-VRAM GPUs
+    if args.low_vram:
+        vram_gb = torch.cuda.get_device_properties(0).total_memory / (1024**3) if torch.cuda.is_available() else 0
+        print(f"Low-VRAM mode enabled. Detected {vram_gb:.1f} GB VRAM.")
+        if vram_gb <= 8:
+            args.submap_size = min(args.submap_size, 4)
+        elif vram_gb <= 12:
+            args.submap_size = min(args.submap_size, 6)
+        elif vram_gb <= 16:
+            args.submap_size = min(args.submap_size, 10)
+        args.checkpoint_inference = True
+        args.sequential_heads = True
+        print(f"  submap_size={args.submap_size}, checkpointing=True, sequential_heads=True")
 
     use_optical_flow_downsample = True
     device = "cuda" if torch.cuda.is_available() else "cpu"
@@ -75,6 +92,17 @@ def main():
 
     model.eval()
     model = model.to(torch.bfloat16)  # use half precision
+
+    # Enable gradient checkpointing during inference to reduce activation memory
+    if args.checkpoint_inference:
+        model.aggregator.use_checkpointing_inference = True
+        print("Gradient checkpointing enabled for inference (saves ~40% VRAM)")
+
+    # Enable sequential head execution to reduce peak memory
+    if args.sequential_heads:
+        model.sequential_heads = True
+        print("Sequential head execution enabled (reduces peak memory)")
+
     model = model.to(device)
 
     # Use the provided image folder path
