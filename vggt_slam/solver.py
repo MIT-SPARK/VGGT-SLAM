@@ -20,11 +20,8 @@ from vggt_slam.submap import Submap
 from vggt_slam.graph import PoseGraph
 from vggt_slam.scale_solver import estimate_scale_pairwise
 from vggt_slam.viewer import Viewer
-<<<<<<< HEAD
-=======
 from vggt.utils.eval_utils import get_vgg_input_imgs, load_images_rgb
 
->>>>>>> 8ed9c22 (add token merge)
 
 DEBUG = False
 
