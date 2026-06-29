@@ -71,12 +71,16 @@ def main():
         clip_model, clip_preprocess = None, None
         clip_tokenizer = None
 
-    model = VGGT()
-    _URL = "https://huggingface.co/facebook/VGGT-1B/resolve/main/model.pt"
-    model.load_state_dict(torch.hub.load_state_dict_from_url(_URL))
+    # model = VGGT()
+    # _URL = "https://huggingface.co/facebook/VGGT-1B/resolve/main/model.pt"
+    # model.load_state_dict(torch.hub.load_state_dict_from_url(_URL))
+    use_point_map = True
+    model = VGGT(enable_point=use_point_map, enable_track=False)
+    ckpt = torch.load(os.getenv("HOME", "")+"/model_tracker_fixed_e20.pt", map_location="cpu")
+    incompat = model.load_state_dict(ckpt, strict=False)
 
     model.eval()
-    model = model.to(torch.bfloat16)  # use half precision
+    model = model.to(torch.float16)  # use half precision
     model = model.to(device)
 
     # Use the provided image folder path

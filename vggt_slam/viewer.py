@@ -11,7 +11,15 @@ class Viewer:
         print(f"Starting viser server on port {port}")
 
         self.server = viser.ViserServer(host="0.0.0.0", port=port)
-        self.server.gui.configure_theme(titlebar_content=None, control_layout="collapsible")
+        # self.server.gui.configure_theme(titlebar_content=None, control_layout="collapsible")
+        self.server.gui.configure_theme(
+            titlebar_content=None,
+            control_layout="collapsible",
+            dark_mode=True,
+            brand_color=(20, 20, 20),
+        )
+        black_img = np.zeros((1, 1, 3), dtype=np.uint8)
+        self.server.scene.set_background_image(black_img, format="jpeg")
 
         # --- GUI Elements ---
         self.gui_show_frames = self.server.gui.add_checkbox("Show Cameras", initial_value=True)
