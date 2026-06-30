@@ -299,6 +299,11 @@ class Solver:
 
     def run_predictions(self, image_names, model, max_loops, clip_model, clip_preprocess):
         device = "cuda" if torch.cuda.is_available() else "cpu"
+
+        # Clear GPU cache before inference to maximize available memory
+        if device == "cuda":
+            torch.cuda.empty_cache()
+
         t1 = time.time()
         with self.vggt_timer:
             images = load_and_preprocess_images(image_names).to(device)
