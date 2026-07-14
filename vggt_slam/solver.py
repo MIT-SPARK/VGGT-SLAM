@@ -130,7 +130,7 @@ class Solver:
 
             current_conf = current_submap.get_conf_masks_frame(frame_id_curr)
             prior_conf = prior_submap.get_conf_masks_frame(frame_id_prev)
-            good_mask = (prior_conf > prior_submap.get_conf_threshold()) * (current_conf > prior_submap.get_conf_threshold())
+            good_mask = (prior_conf > prior_submap.get_conf_threshold()) * (current_conf > current_submap.get_conf_threshold())
             good_mask = good_mask.reshape(-1)
 
             if np.sum(good_mask) < 100:
@@ -139,8 +139,11 @@ class Solver:
                 if np.sum(good_mask) < 100: # Handle the case where loop closure frames do not have enough points. 
                     good_mask = (prior_conf > 0).reshape(-1)
 
-            P_temp = np.linalg.inv(prior_submap.proj_mats[-1]) @ current_submap.proj_mats[0]
-            t1 = (P_temp[0:3,0:3] @ current_submap.get_frame_pointcloud(frame_id_curr).reshape(-1, 3)[good_mask].T).T
+            prior_intrinsics = prior_submap.proj_mats[frame_id_prev]
+            current_intrinsics = current_submap.proj_mats[frame_id_curr]
+            calibration_alignment = np.linalg.solve(prior_intrinsics, current_intrinsics)  # use solve instead of inv for numerical stability
+
+            t1 = (calibration_alignment[0:3,0:3] @ current_submap.get_frame_pointcloud(frame_id_curr).reshape(-1, 3)[good_mask].T).T
             t2 = prior_submap.get_frame_pointcloud(frame_id_prev).reshape(-1, 3)[good_mask]
             scale_factor_est_output = estimate_scale_pairwise(t1, t2)
             print(colored("scale factor", 'green'), scale_factor_est_output)
@@ -152,7 +155,7 @@ class Solver:
                 debug_visualize(scale_factor*t1, t2)
 
             # Compute the first camera matrix of the new submap in world frame.
-            H_overlap_prior_overlap_current = np.linalg.inv(prior_submap.proj_mats[-1]) @ current_submap.proj_mats[0] @ H_scale
+            H_overlap_prior_overlap_current = calibration_alignment @ H_scale
             H_w_submap = self.graph.get_homography(overlapping_node_id_prev) @ H_overlap_prior_overlap_current
 
             # Add first node of the new submap to the graph.
