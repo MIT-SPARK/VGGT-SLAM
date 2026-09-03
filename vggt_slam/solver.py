@@ -269,7 +269,12 @@ class Solver:
 
             world_points_lc = unproject_depth_map_to_point_map(depth_map_lc, pred_dict["extrinsic_lc"], intrinsics_cam)
 
-            lc_submap_num = self.map.get_largest_key() + self.map.get_latest_submap().get_last_non_loop_frame_index() + 1
+            # Loop-closure helper submaps live in a dedicated id namespace
+            # (see PoseGraph.loop_helper_id) so their graph keys can never
+            # collide with regular trajectory submaps.
+            next_regular_id = self.map.get_largest_key(ignore_loop_closure_submaps=True)
+            next_regular_id += self.map.get_latest_submap(ignore_loop_closure_submaps=True).get_last_non_loop_frame_index() + 1
+            lc_submap_num = PoseGraph.loop_helper_id(next_regular_id + index)
             print(f"Creating new Loop closure submap with id {lc_submap_num}")
             lc_submap = Submap(lc_submap_num)
             lc_submap.set_lc_status(True)
