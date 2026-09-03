@@ -12,6 +12,16 @@ from gtsam.symbol_shorthand import X
 from vggt_slam.slam_utils import decompose_camera, normalize_to_sl4
 
 class PoseGraph:
+    # Auxiliary loop-closure helper submaps live in a separate ID namespace so
+    # their graph keys can never collide with regular trajectory submaps, whose
+    # IDs grow by ~submap_size per submap.  1e9 leaves room for ~60M submaps.
+    LC_SUBMAP_ID_OFFSET = 1_000_000_000
+
+    @staticmethod
+    def loop_helper_id(next_regular_id: int) -> int:
+        """Map the next regular submap id to a collision-free helper id."""
+        return PoseGraph.LC_SUBMAP_ID_OFFSET + next_regular_id
+
     def __init__(self):
         """Initialize a factor graph for Pose3 nodes with BetweenFactors."""
         self.graph = NonlinearFactorGraph()
@@ -74,7 +84,7 @@ class PoseGraph:
         """
         homography = self.get_homography(node_id)
         projection_matrix = np.linalg.inv(homography)
-        return projection_matri
+        return projection_matrix
 
     
     def optimize(self, verbose=False):
