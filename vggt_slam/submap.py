@@ -141,7 +141,10 @@ class Submap:
         frame_ids = []
         for path in file_paths:
             filename = os.path.basename(path)
-            match = re.search(r'\d+(?:\.\d+)?', filename)  # matches integers and decimals
+            # Match the number immediately before the extension, same as
+            # sort_images_by_number, so a digit earlier in the filename
+            # (e.g. a camera index prefix) is not picked up instead.
+            match = re.search(r'\d+(?:\.\d+)?(?=[^\d]*\.[^.]+$)', filename)
             if match:
                 frame_ids.append(float(match.group()))
             else:
